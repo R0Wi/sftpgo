@@ -889,6 +889,28 @@ func GetTLSVersion(val int) uint16 {
 	}
 }
 
+// GetTLSVersionAsMax returns the TLS version from an integer value to be used
+// as the maximum supported TLS version:
+// - 10 means TLS 1.0
+// - 11 means TLS 1.1
+// - 12 means TLS 1.2
+// - 13 means TLS 1.3
+// any other value, including 0, leaves the maximum version unrestricted
+func GetTLSVersionAsMax(val int) uint16 {
+	switch val {
+	case 13:
+		return tls.VersionTLS13
+	case 12:
+		return tls.VersionTLS12
+	case 11:
+		return tls.VersionTLS11
+	case 10:
+		return tls.VersionTLS10
+	default:
+		return 0
+	}
+}
+
 // IsEmailValid returns true if the specified email address is valid
 func IsEmailValid(email string) bool {
 	return emailRegex.MatchString(email)
