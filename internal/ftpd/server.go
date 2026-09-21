@@ -317,6 +317,7 @@ func (s *Server) buildTLSConfig() {
 		s.tlsConfig = &tls.Config{
 			GetCertificate: mgr.GetCertificateFunc(certID),
 			MinVersion:     util.GetTLSVersion(s.binding.MinTLSVersion),
+			MaxVersion:     util.GetTLSVersionAsMax(s.binding.MaxTLSVersion),
 			CipherSuites:   s.binding.ciphers,
 		}
 		logger.Debug(logSender, "", "configured TLS cipher suites for binding %q: %v, certID: %v",

@@ -126,6 +126,7 @@
         "certificate_file": "",
         "certificate_key_file": "",
         "min_tls_version": 12,
+        "max_tls_version": 0,
         "force_passive_ip": "",
         "passive_ip_overrides": [],
         "passive_host": "",

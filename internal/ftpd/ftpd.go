@@ -77,6 +77,12 @@ type Binding struct {
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
 	// Defines the minimum TLS version. 13 means TLS 1.3, default is TLS 1.2
 	MinTLSVersion int `json:"min_tls_version" mapstructure:"min_tls_version"`
+	// Defines the maximum TLS version, useful to work around client bugs triggered
+	// by TLS 1.3 (for example FTPS uploads truncated by clients that abortively
+	// close the data connection without reading the post-handshake session ticket).
+	// 12 means TLS 1.2, 11 means TLS 1.1, 10 means TLS 1.0. Any other value, including
+	// the default of 0, leaves the maximum version unrestricted
+	MaxTLSVersion int `json:"max_tls_version" mapstructure:"max_tls_version"`
 	// External IP address for passive connections.
 	ForcePassiveIP string `json:"force_passive_ip" mapstructure:"force_passive_ip"`
 	// PassiveIPOverrides allows to define different IP addresses for passive connections

@@ -1522,6 +1522,21 @@ func TestGetTLSVersion(t *testing.T) {
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsVer)
 }
 
+func TestGetTLSVersionAsMax(t *testing.T) {
+	tlsVer := util.GetTLSVersionAsMax(0)
+	assert.Equal(t, uint16(0), tlsVer)
+	tlsVer = util.GetTLSVersionAsMax(2)
+	assert.Equal(t, uint16(0), tlsVer)
+	tlsVer = util.GetTLSVersionAsMax(10)
+	assert.Equal(t, uint16(tls.VersionTLS10), tlsVer)
+	tlsVer = util.GetTLSVersionAsMax(11)
+	assert.Equal(t, uint16(tls.VersionTLS11), tlsVer)
+	tlsVer = util.GetTLSVersionAsMax(12)
+	assert.Equal(t, uint16(tls.VersionTLS12), tlsVer)
+	tlsVer = util.GetTLSVersionAsMax(13)
+	assert.Equal(t, uint16(tls.VersionTLS13), tlsVer)
+}
+
 func TestCleanPath(t *testing.T) {
 	assert.Equal(t, "/", util.CleanPath("/"))
 	assert.Equal(t, "/", util.CleanPath("."))

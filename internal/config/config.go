@@ -73,6 +73,7 @@ var (
 		CertificateFile:            "",
 		CertificateKeyFile:         "",
 		MinTLSVersion:              12,
+		MaxTLSVersion:              0,
 		ForcePassiveIP:             "",
 		PassiveIPOverrides:         nil,
 		PassiveHost:                "",
@@ -1217,6 +1218,12 @@ func getFTPDBindingSecurityFromEnv(idx int, binding *ftpd.Binding) bool {
 	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__MIN_TLS_VERSION", idx), 32)
 	if ok {
 		binding.MinTLSVersion = int(tlsVer)
+		isSet = true
+	}
+
+	maxTLSVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__MAX_TLS_VERSION", idx), 32)
+	if ok {
+		binding.MaxTLSVersion = int(maxTLSVer)
 		isSet = true
 	}
 
