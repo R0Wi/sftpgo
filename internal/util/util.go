@@ -895,7 +895,8 @@ func GetTLSVersion(val int) uint16 {
 // - 11 means TLS 1.1
 // - 12 means TLS 1.2
 // - 13 means TLS 1.3
-// any other value, including 0, leaves the maximum version unrestricted
+// any other value, including 0, returns 0, which leaves the maximum version
+// unrestricted. Callers should reject values other than 0 before using the result
 func GetTLSVersionAsMax(val int) uint16 {
 	switch val {
 	case 13:

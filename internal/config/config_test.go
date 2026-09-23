@@ -984,7 +984,7 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__ADDRESS", "127.0.1.1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__PORT", "2203")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__TLS_MODE", "1")
-	os.Setenv("SFTPGO_FTPD__BINDINGS__9__MIN_TLS_VERSION", "13")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__9__MIN_TLS_VERSION", "12")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__MAX_TLS_VERSION", "12")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__FORCE_PASSIVE_IP", "127.0.1.1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__PASSIVE_IP_OVERRIDES__3__IP", "192.168.1.1")
@@ -1046,7 +1046,7 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "127.0.1.1", bindings[1].Address)
 	require.True(t, bindings[1].ApplyProxyConfig) // default value
 	require.Equal(t, 1, bindings[1].TLSMode)
-	require.Equal(t, 13, bindings[1].MinTLSVersion)
+	require.Equal(t, 12, bindings[1].MinTLSVersion)
 	require.Equal(t, 12, bindings[1].MaxTLSVersion)
 	require.Equal(t, "127.0.1.1", bindings[1].ForcePassiveIP)
 	require.Empty(t, bindings[1].PassiveHost)

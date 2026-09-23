@@ -516,6 +516,56 @@ func TestInitialization(t *testing.T) {
 	certMgr.Store(oldMgr)
 }
 
+func TestBindingTLSVersions(t *testing.T) {
+	for _, tc := range []struct {
+		minVersion int
+		maxVersion int
+		errContent string
+	}{
+		{minVersion: 12, maxVersion: 0},
+		{minVersion: 13, maxVersion: 0},
+		{minVersion: 12, maxVersion: 12},
+		{minVersion: 12, maxVersion: 13},
+		{minVersion: 13, maxVersion: 13},
+		{minVersion: 10, maxVersion: 11},
+		{minVersion: 0, maxVersion: 12},
+		{minVersion: 13, maxVersion: 12, errContent: "min_tls_version TLS 1.3 is greater than max_tls_version TLS 1.2"},
+		{minVersion: 12, maxVersion: 11, errContent: "min_tls_version TLS 1.2 is greater than max_tls_version TLS 1.1"},
+		{minVersion: 0, maxVersion: 10, errContent: "min_tls_version TLS 1.2 is greater than max_tls_version TLS 1.0"},
+		{minVersion: 12, maxVersion: 14, errContent: "invalid max_tls_version: 14"},
+		{minVersion: 12, maxVersion: 2, errContent: "invalid max_tls_version: 2"},
+		{minVersion: 12, maxVersion: -1, errContent: "invalid max_tls_version: -1"},
+	} {
+		binding := Binding{
+			Port:          2121,
+			MinTLSVersion: tc.minVersion,
+			MaxTLSVersion: tc.maxVersion,
+		}
+		err := binding.checkTLSVersions()
+		if tc.errContent == "" {
+			assert.NoError(t, err, "min %d max %d", tc.minVersion, tc.maxVersion)
+		} else if assert.Error(t, err, "min %d max %d", tc.minVersion, tc.maxVersion) {
+			assert.Contains(t, err.Error(), tc.errContent)
+		}
+	}
+	// an invalid TLS versions configuration must prevent the server from starting
+	c := &Configuration{}
+	binding := Binding{
+		Port:          2121,
+		MinTLSVersion: 13,
+		MaxTLSVersion: 12,
+	}
+	server := NewServer(c, configDir, binding, 0)
+	_, err := server.GetSettings()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is greater than max_tls_version")
+	}
+	err = ftpserver.NewFtpServer(server).ListenAndServe()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is greater than max_tls_version")
+	}
+}
+
 func TestServerGetSettings(t *testing.T) {
 	oldConfig := common.Config
 	oldMgr := certMgr.Load()
