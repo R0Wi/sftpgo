@@ -32,6 +32,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -66,6 +67,7 @@ const (
 	sftpServerAddr          = "127.0.0.1:2122"
 	ftpSrvAddrTLS           = "127.0.0.1:2124" // ftp server with implicit tls
 	ftpSrvAddrTLSResumption = "127.0.0.1:2126" // ftp server with implicit tls
+	ftpSrvAddrTLSMaxVersion = "127.0.0.1:2128" // ftp server with explicit tls capped to TLS 1.2
 	defaultUsername         = "test_user_ftp"
 	defaultPassword         = "test_password"
 	osWindows               = "windows"
@@ -451,6 +453,27 @@ func TestMain(m *testing.M) {
 	}
 	ftpdConf.CACertificates = []string{caCrtPath}
 	ftpdConf.CARevocationLists = []string{caCRLPath}
+
+	go func(cfg ftpd.Configuration) {
+		logger.Debug(logSender, "", "initializing FTP server with config %+v", cfg)
+		if err := cfg.Initialize(configDir); err != nil {
+			logger.ErrorToConsole("could not start FTP server: %v", err)
+			os.Exit(1)
+		}
+	}(ftpdConf)
+
+	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
+
+	ftpdConf = config.GetFTPDConfig()
+	ftpdConf.Bindings = []ftpd.Binding{
+		{
+			Port:               2128,
+			CertificateFile:    certPath,
+			CertificateKeyFile: keyPath,
+			TLSMode:            1,
+			MaxTLSVersion:      12,
+		},
+	}
 
 	go func(cfg ftpd.Configuration) {
 		logger.Debug(logSender, "", "initializing FTP server with config %+v", cfg)
@@ -3675,6 +3698,76 @@ func TestClientCertificateAuthRevokedCert(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestMaxTLSVersion(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	var mu sync.Mutex
+	var negotiatedVersions []uint16
+	tlsConfig := &tls.Config{
+		ServerName:         "localhost",
+		InsecureSkipVerify: true, // use this for tests only
+		MinVersion:         tls.VersionTLS12,
+		MaxVersion:         tls.VersionTLS13,
+		// called for both control and data connections handshakes
+		VerifyConnection: func(cs tls.ConnectionState) error {
+			mu.Lock()
+			defer mu.Unlock()
+
+			negotiatedVersions = append(negotiatedVersions, cs.Version)
+			return nil
+		},
+	}
+	client, err := getFTPClientTLSMaxVersion(user, tlsConfig)
+	if assert.NoError(t, err) {
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(131072)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		info, err := os.Stat(filepath.Join(user.GetHomeDir(), testFileName))
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize, info.Size())
+		}
+		err = client.Quit()
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+	mu.Lock()
+	// control connection, upload and download data connections
+	assert.GreaterOrEqual(t, len(negotiatedVersions), 3)
+	for _, v := range negotiatedVersions {
+		assert.Equal(t, tls.VersionName(tls.VersionTLS12), tls.VersionName(v))
+	}
+	mu.Unlock()
+	// a client requiring TLS 1.3 must not be able to connect
+	tlsConfig = &tls.Config{
+		ServerName:         "localhost",
+		InsecureSkipVerify: true, // use this for tests only
+		MinVersion:         tls.VersionTLS13,
+	}
+	_, err = getFTPClientTLSMaxVersion(user, tlsConfig)
+	assert.Error(t, err)
+	// the servers without a max TLS version still negotiate TLS 1.3
+	client, err = getFTPClient(user, true, tlsConfig)
+	if assert.NoError(t, err) {
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestAnonymousGroupInheritanceClientCertificateAuth(t *testing.T) {
 	g := getTestGroup()
 	g.UserSettings.Filters.IsAnonymous = true
@@ -4214,6 +4307,22 @@ func getFTPClientImplicitTLS(user dataprovider.User) (*ftp.ServerConn, error) {
 		pwd = user.Password
 	}
 	err = client.Login(user.Username, pwd)
+	if err != nil {
+		return nil, err
+	}
+	return client, err
+}
+
+func getFTPClientTLSMaxVersion(user dataprovider.User, tlsConfig *tls.Config) (*ftp.ServerConn, error) {
+	ftpOptions := []ftp.DialOption{
+		ftp.DialWithTimeout(5 * time.Second),
+		ftp.DialWithExplicitTLS(tlsConfig),
+	}
+	client, err := ftp.Dial(ftpSrvAddrTLSMaxVersion, ftpOptions...)
+	if err != nil {
+		return nil, err
+	}
+	err = client.Login(user.Username, defaultPassword)
 	if err != nil {
 		return nil, err
 	}

@@ -5211,6 +5211,22 @@ components:
         TLS version:
           * `12` - TLS 1.2
           * `13` - TLS 1.3
+    MaxTLSVersion:
+      type: integer
+      enum:
+        - 0
+        - 10
+        - 11
+        - 12
+        - 13
+      description: >
+        Maximum TLS version, useful to work around client bugs triggered by TLS 1.3.
+        It must not be lower than the minimum TLS version, otherwise the service will not start:
+          * `0` - unrestricted, the default
+          * `10` - TLS 1.0, requires lowering the minimum TLS version too
+          * `11` - TLS 1.1, requires lowering the minimum TLS version too
+          * `12` - TLS 1.2
+          * `13` - TLS 1.3, currently equivalent to unrestricted
     IPListType:
       type: integer
       enum:
@@ -6354,6 +6370,8 @@ components:
               * `2` - implicit TLS
         min_tls_version:
           $ref: '#/components/schemas/TLSVersions'
+        max_tls_version:
+          $ref: '#/components/schemas/MaxTLSVersion'
         force_passive_ip:
           type: string
           description: External IP address for passive connections

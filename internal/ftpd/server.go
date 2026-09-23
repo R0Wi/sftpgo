@@ -91,6 +91,9 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 	if err := s.binding.checkSecuritySettings(); err != nil {
 		return nil, err
 	}
+	if err := s.binding.checkTLSVersions(); err != nil {
+		return nil, err
+	}
 	var portRange *ftpserver.PortRange
 	if s.config.PassivePortRange.Start > 0 && s.config.PassivePortRange.End >= s.config.PassivePortRange.Start {
 		portRange = &ftpserver.PortRange{
@@ -317,6 +320,7 @@ func (s *Server) buildTLSConfig() {
 		s.tlsConfig = &tls.Config{
 			GetCertificate: mgr.GetCertificateFunc(certID),
 			MinVersion:     util.GetTLSVersion(s.binding.MinTLSVersion),
+			MaxVersion:     util.GetTLSVersionAsMax(s.binding.MaxTLSVersion),
 			CipherSuites:   s.binding.ciphers,
 		}
 		logger.Debug(logSender, "", "configured TLS cipher suites for binding %q: %v, certID: %v",

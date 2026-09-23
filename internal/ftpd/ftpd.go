@@ -17,6 +17,7 @@ package ftpd
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -77,6 +78,13 @@ type Binding struct {
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
 	// Defines the minimum TLS version. 13 means TLS 1.3, default is TLS 1.2
 	MinTLSVersion int `json:"min_tls_version" mapstructure:"min_tls_version"`
+	// Defines the maximum TLS version, useful to work around client bugs triggered
+	// by TLS 1.3 (for example FTPS uploads truncated by clients that abortively
+	// close the data connection without reading the post-handshake session ticket).
+	// 13 means TLS 1.3, 12 means TLS 1.2, 11 means TLS 1.1, 10 means TLS 1.0.
+	// The default of 0 leaves the maximum version unrestricted. Any other value, or a
+	// value lower than the minimum TLS version, prevents the service from starting
+	MaxTLSVersion int `json:"max_tls_version" mapstructure:"max_tls_version"`
 	// External IP address for passive connections.
 	ForcePassiveIP string `json:"force_passive_ip" mapstructure:"force_passive_ip"`
 	// PassiveIPOverrides allows to define different IP addresses for passive connections
@@ -137,6 +145,21 @@ func (b *Binding) IsValid() bool {
 
 func (b *Binding) isTLSModeValid() bool {
 	return b.TLSMode >= 0 && b.TLSMode <= 2
+}
+
+func (b *Binding) checkTLSVersions() error {
+	if b.MaxTLSVersion == 0 {
+		return nil
+	}
+	maxVersion := util.GetTLSVersionAsMax(b.MaxTLSVersion)
+	if maxVersion == 0 {
+		return fmt.Errorf("invalid max_tls_version: %d", b.MaxTLSVersion)
+	}
+	if minVersion := util.GetTLSVersion(b.MinTLSVersion); minVersion > maxVersion {
+		return fmt.Errorf("min_tls_version %s is greater than max_tls_version %s",
+			tls.VersionName(minVersion), tls.VersionName(maxVersion))
+	}
+	return nil
 }
 
 func (b *Binding) checkSecuritySettings() error {
